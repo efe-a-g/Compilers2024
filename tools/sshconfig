@@ -1,0 +1,10 @@
+Host jaune
+  ControlMaster auto
+  ControlPersist 600
+  ControlPath "~/.ssh/sockets/%r@%h-%p"
+  ProxyCommand ssh -q -F "${TOOLS}/sshconfig" connect@spivey.oriel.ox.ac.uk %h
+
+Host *
+  IdentityFile "${TOOLS}/guest_rsa"
+  PasswordAuthentication no
+  UserKnownHostsFile "${TOOLS}/known_hosts"

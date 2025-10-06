@@ -1,0 +1,16 @@
+#!/bin/sh
+
+# This hacked up version works, at least on Linux, even for people who
+# have spaces in the names of directories.  It exploits the kernel
+# feature by which the remainder of a #! line, after the first
+# space-delimited word naming the interpreter, is passed to that
+# interpreter as a single argument.
+
+KEIKO=`cd ../keiko; pwd`
+
+set -x
+
+./ppc1 $* >a.k \
+    && ../keiko/pplink -nostdlib -i "/usr/bin/env $KEIKO/ppx" \
+        ../keiko/lib.k a.k -o a.out >/dev/null \
+    && chmod +x a.out

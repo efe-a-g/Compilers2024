@@ -1,0 +1,88 @@
+#!/usr/bin/env tclsh
+
+# ocamlwrap -- work around an OCaml bug by displaying the source line
+# mentioned in error messages. Invoke with
+#
+#     ocamlwrap ocamlc file.ml ...
+#
+
+# getline -- fetch single line from file
+proc getline {file line} {
+    set f [open $file]
+    for {set i 0} {$i < $line} {incr i} {
+	gets $f buf
+    }
+    close $f
+    return $buf
+}
+
+# tab -- compute tab location
+proc tab {n} {
+    return [expr {($n+8)/8*8}]
+}
+
+# locate -- echo line with error location
+proc locate {file line beg end} {
+    set buf [getline $file $line]
+
+    if {$beg == $end} {incr end}
+
+    # Deal with locations that stretch onto the next line
+    if {$end > [string length $buf]} {
+	set buf "$buf ..."
+	set end [string length $buf]
+    }
+
+    # Output the source line
+    puts stderr $buf
+
+    # Output spaces up to position BEG
+    for {set i 0; set j 0} {$i < $beg} {incr i} {
+	if {[string index $buf $i] == "\t"} {
+	    puts -nonewline stderr "\t"; set j [tab $j]
+	} else {
+	    puts -nonewline stderr " "; incr j
+	}
+    }
+
+    # Output markers up to position END
+    for {} {$i < $end} {incr i} {
+	if {[string index $buf $i] == "\t"} {
+	    for {set k [tab $j]} {$j < $k} {incr j} {
+		puts -nonewline stderr "^"
+	    }
+	} else {
+	    puts -nonewline stderr "^"; incr j
+	}
+    }
+
+    # Newline to finish
+    puts stderr ""
+}
+
+# Echo the command
+puts $argv
+
+# Disable OCaml's own source echoing
+set env(OCAML_ERROR_STYLE) short
+
+# Start the compiler and grab its messages
+set chan [open [concat "|" $argv 2>@1] "r"]
+
+# Analyse the messages
+while {[gets $chan line] >= 0} {
+    puts stderr $line
+    if {[regexp \
+             {^File "(.*)", line ([0-9]+), characters ([0-9]+)-([0-9]+):} \
+             $line _ file lnum beg end]} {
+        locate $file $lnum $beg $end
+    }
+}
+
+# Catch the error status and pass it on
+try {close $chan} trap CHILDSTATUS {message options} {
+    set status [lindex [dict get $options -errorcode] 2]
+    exit $status
+}
+
+exit 0
